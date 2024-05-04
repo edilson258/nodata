@@ -1,4 +1,4 @@
-use crate::ast::{DataType, Field, FieldValue, Model};
+use crate::ast::*;
 use crate::lexer::Lexer;
 use crate::token::Token;
 
@@ -6,54 +6,28 @@ pub struct Parser<'a> {
     l: Lexer<'a>,
     curr_token: Token,
     next_token: Token,
-    is_schema: bool,
 }
 
 impl<'a> Parser<'a> {
-    pub fn parse_schema(input: &'a [char]) -> Result<Model, String> {
-        let mut p = Self::new(input, true);
-        p.parse()
-    }
+    /* Model  */
 
-    pub fn parse_data(input: &'a [char]) -> Result<Model, String> {
-        let mut p = Self::new(input, false);
-        p.parse()
-    }
+    pub fn parse_model(input: &'a [char]) -> Result<Model, String> {
+        let mut p = Self::new(input);
 
-    fn new(input: &'a [char], is_schema: bool) -> Self {
-        let mut p = Parser {
-            l: Lexer::new(&input),
-            curr_token: Token::Eof,
-            next_token: Token::Eof,
-            is_schema,
-        };
-
-        p.read_token();
-        p.read_token();
-
-        p
-    }
-
-    fn read_token(&mut self) {
-        self.curr_token = self.next_token.clone();
-        self.next_token = self.l.next_token();
-    }
-
-    fn parse(&mut self) -> Result<Model, String> {
-        let name = match self.curr_token.clone() {
+        let name = match p.curr_token.clone() {
             Token::String(val) => val,
             _ => return Err("[Error]: Invalid model name".to_string()),
         };
-        self.read_token();
+        p.read_token();
 
-        if !self.skip(Token::Colon) {
+        if !p.skip(Token::Colon) {
             return Err(format!(
                 "[Error]: Expected ':' but found {}",
-                self.curr_token
+                p.curr_token
             ));
         }
 
-        let fields = self.parse_fields();
+        let fields = p.parse_model_fields();
 
         if fields.is_err() {
             return Err(fields.err().unwrap());
@@ -65,7 +39,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_fields(&mut self) -> Result<Vec<Field>, String> {
+    fn parse_model_fields(&mut self) -> Result<Vec<ModelField>, String> {
         if !self.skip(Token::Lbrace) {
             return Err(format!(
                 "[Error]: Expected '{{' but found {}",
@@ -73,7 +47,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let mut fields: Vec<Field> = vec![];
+        let mut fields: Vec<ModelField> = vec![];
 
         loop {
             if self.curr_token_is(Token::Eof) {
@@ -84,7 +58,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            let field = self.parse_field();
+            let field = self.parse_model_field();
             if field.is_err() {
                 return Err(field.err().unwrap());
             }
@@ -100,7 +74,7 @@ impl<'a> Parser<'a> {
         Ok(fields)
     }
 
-    fn parse_field(&mut self) -> Result<Field, String> {
+    fn parse_model_field(&mut self) -> Result<ModelField, String> {
         let name = match self.curr_token.clone() {
             Token::String(val) => val,
             _ => return Err(format!("[Error]: Invalid field name")),
@@ -114,21 +88,121 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let value = match self.is_schema {
-            true => match self.curr_token.clone() {
-                Token::TypeNumber => FieldValue::DataType(DataType::Number),
-                Token::TypeString => FieldValue::DataType(DataType::String),
-                _ => return Err(format!("[Error]: Invalid field value {}", self.curr_token)),
-            },
-            false => match self.curr_token.clone() {
-                Token::String(val) => FieldValue::String(val),
-                Token::Number(val) => FieldValue::Number(val),
-                _ => return Err(format!("[Error]: Invalid field value {}", self.curr_token)),
-            },
+        let value = match self.curr_token.clone() {
+            Token::String(val) => ModelFieldValue::String(val),
+            Token::Number(val) => ModelFieldValue::Number(val),
+            _ => return Err(format!("[Error]: Invalid field value {}", self.curr_token)),
         };
 
         self.read_token();
-        Ok(Field { name, value })
+        Ok(ModelField { name, value })
+    }
+
+
+    /* Schema  */
+
+    pub fn parse_schema(input: &'a [char]) -> Result<Schema, String> {
+        let mut p = Self::new(input);
+
+        let name = match p.curr_token.clone() {
+            Token::String(val) => val,
+            _ => return Err("[Error]: Invalid schema name".to_string()),
+        };
+        p.read_token();
+
+        if !p.skip(Token::Colon) {
+            return Err(format!("[Error]: Expected ':' but found {}", p.curr_token));
+        }
+
+        let fields = p.parse_schema_fields();
+
+        if fields.is_err() {
+            return Err(fields.err().unwrap());
+        }
+
+        Ok(Schema {
+            name,
+            fields: fields.ok().unwrap(),
+        })
+    }
+
+    fn parse_schema_fields(&mut self) -> Result<Vec<SchemaField>, String> {
+        if !self.skip(Token::Lbrace) {
+            return Err(format!(
+                "[Error]: Expected '{{' but found {}",
+                self.curr_token
+            ));
+        }
+
+        let mut fields: Vec<SchemaField> = vec![];
+
+        loop {
+            if self.curr_token_is(Token::Eof) {
+                return Err("[Error]: Unexpected EOF".to_string());
+            }
+
+            if self.curr_token_is(Token::Rbrace) {
+                break;
+            }
+
+            let field = self.parse_schema_field();
+            if field.is_err() {
+                return Err(field.err().unwrap());
+            }
+            fields.push(field.ok().unwrap());
+
+            if !self.skip(Token::Comma) {
+                if !self.curr_token_is(Token::Rbrace) {
+                    return Err("[Error]: Expected ',' or '{{'".to_string());
+                }
+            }
+        }
+
+        Ok(fields)
+    }
+
+    fn parse_schema_field(&mut self) -> Result<SchemaField, String> {
+        let name = match self.curr_token.clone() {
+            Token::String(val) => val,
+            _ => return Err(format!("[Error]: Invalid field name")),
+        };
+        self.read_token();
+
+        if !self.skip(Token::Colon) {
+            return Err(format!(
+                "[Error]: Expected ':' but found {}",
+                self.curr_token
+            ));
+        }
+
+        let type_ = match self.curr_token.clone() {
+            Token::TypeNumber => DataType::Number,
+            Token::TypeString => DataType::String,
+            _ => return Err(format!("[Error]: Invalid field value {}", self.curr_token)),
+        };
+
+        self.read_token();
+        Ok(SchemaField { name, type_ })
+    }
+
+    /* Helpers */
+
+    fn new(input: &'a [char]) -> Self {
+        let mut p = Parser {
+            l: Lexer::new(&input),
+            curr_token: Token::Eof,
+            next_token: Token::Eof,
+        };
+
+        p.read_token();
+        p.read_token();
+
+        p
+    }
+
+    fn read_token(&mut self) {
+        self.curr_token = self.next_token.clone();
+        self.next_token = self.l.next_token();
     }
 
     fn curr_token_is(&mut self, tk: Token) -> bool {

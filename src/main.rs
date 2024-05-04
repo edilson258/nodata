@@ -23,7 +23,7 @@ fn main() {
         "#;
 
     let input = data.chars().collect::<Vec<char>>();
-    let model_data = Parser::parse_data(&input);
+    let model_data = Parser::parse_model(&input);
     if model_data.is_err() {
         println!("{}", model_data.err().unwrap());
     } else {
