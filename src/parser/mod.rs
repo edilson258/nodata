@@ -88,14 +88,14 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let value = match self.curr_token.clone() {
-            Token::String(val) => ModelFieldValue::String(val),
-            Token::Number(val) => ModelFieldValue::Number(val),
+        let (value, type_) = match self.curr_token.clone() {
+            Token::String(val) => (Object::String(val), DataType::String),
+            Token::Number(val) => (Object::Number(val), DataType::Number),
             _ => return Err(format!("[Error]: Invalid field value {}", self.curr_token)),
         };
 
         self.read_token();
-        Ok(ModelField { name, value })
+        Ok(ModelField { name, value, type_ })
     }
 
 
