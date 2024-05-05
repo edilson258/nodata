@@ -15,7 +15,7 @@ impl fmt::Display for DataType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Object {
     String(String),
     Number(f64),

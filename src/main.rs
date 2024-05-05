@@ -1,11 +1,16 @@
 mod ast;
+mod database;
 mod lexer;
 mod parser;
 mod token;
-mod database;
 
 use database::Table;
 use parser::Parser;
+
+use crate::{
+    ast::Object,
+    database::{Condition, WhereQuery},
+};
 
 fn main() {
     let schema = r#"
@@ -58,5 +63,11 @@ fn main() {
     let _ = table.add_row(model2.unwrap());
     let _ = table.add_row(model3.unwrap());
 
-    println!("{:#?}", table.get_by_id(1));
+    println!(
+        "{:#?}",
+        table.query_where(WhereQuery {
+            field: "name".to_string(),
+            cond: Condition::NotEqual(Object::String("Edilson".to_string())),
+        })
+    );
 }
