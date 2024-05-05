@@ -1,7 +1,7 @@
 use crate::ast::{Model, Object, Schema, SchemaField};
 
 #[derive(Debug)]
-struct Row {
+pub struct Row {
     id: usize,
     entries: Vec<Object>,
 }
@@ -28,6 +28,10 @@ impl Table {
         let next_id = self.next_id;
         self.next_id += 1;
         next_id
+    }
+
+    pub fn get_by_id(&self, id: usize) -> Option<&Row> {
+        self.rows.iter().find(|r| r.id == id)
     }
 
     pub fn add_row(&mut self, model: Model) -> Result<usize, String> {

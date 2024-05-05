@@ -58,5 +58,5 @@ fn main() {
     let _ = table.add_row(model2.unwrap());
     let _ = table.add_row(model3.unwrap());
 
-    println!("{:#?}", table);
+    println!("{:#?}", table.get_by_id(1));
 }
