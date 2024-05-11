@@ -1,0 +1,25 @@
+syntax = "proto3";
+package nodata;
+
+service CRUD {
+  rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse);
+}
+
+enum DataType {
+  STRING = 0;
+  NUMBER = 2;
+}
+
+message CollectionField {
+  string name = 1;
+  DataType type_ = 2;
+}
+
+message CreateCollectionRequest {
+  string name = 1;
+  repeated CollectionField fields = 2;
+}
+
+message CreateCollectionResponse {
+  string status = 1;
+}
